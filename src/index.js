@@ -34,7 +34,7 @@ function dbConnect(_user, _passw, _host, _port, _database) {
  * @param {nm$_mysql.dbConnect.client|dbConnect.client} _dbConnection - A live connection to the database
  * @param {integer} _verbosity - The log level required -- 0(NONE) - 3(Full)
  */
-function processCommands(_fileName, _commandBuffer, _dbConnection, _verbosity, _force) {
+function processCommands(_fileName, _commandBuffer, _dbConnection, _verbosity, _force, cb) {
     var commandsDone = false;
     var commandCount = 0;
     var processNextCommand = true;
@@ -82,10 +82,16 @@ function processCommands(_fileName, _commandBuffer, _dbConnection, _verbosity, _
 
             setTimeout(runCmd, 40);
         }
+        else {
+            cb(); 
+        }
     };
 
     if (_commandBuffer.length > 0) {
         runCmd();
+    }
+    else {
+        cb(); 
     }
 }
 
@@ -169,10 +175,11 @@ function processCommandFile(_username, _password, _host, _port, _verbosity, _dat
         var dbConnection = dbConnect(_username, _password, host, port, _database);
         var name = file.path;
         if (verbosity > 0) {
-            console.log('Starting to process \'' + name + '\'');
+            console.log('Starting to process \'' + name + '\'');                 
         }
-        processCommands(name, commandBuffer, dbConnection, verbosity, force);
-        cb(null, file);
+        processCommands(name, commandBuffer, dbConnection, verbosity, force, function(){
+            cb(null, file);
+        });
     });
 }
 

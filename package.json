@@ -1,0 +1,36 @@
+{
+  "author": {
+    "name": "snapperben",
+    "email": "info@brhd.co.uk"
+  },
+  "dependencies": {
+    "gulp-util": "^3.0.7",
+    "mysql": "^2.9.0",
+    "through2": "^2.0.0"
+  },
+  "description": "A module to allow sql from files to be run into a MySql database using gulp",
+  "homepage": "https://github.com/zxteamorg/gulp-mysql-command-file-processor",
+  "keywords": [
+    "sql",
+    "mysql",
+    "script",
+    "schema",
+    "DDL",
+    "gulpplugin"
+  ],
+  "license": "ISC",
+  "main": "src/index.js",
+  "maintainers": [
+    {
+      "name": "snapperben",
+      "email": "info@brhd.co.uk"
+    }
+  ],
+  "name": "gulp-mysql-command-file-processor",
+  "readme": "ERROR: No README data found!",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zxteamorg/gulp-mysql-command-file-processor.git"
+  },
+  "version": "1.0.5"
+}
