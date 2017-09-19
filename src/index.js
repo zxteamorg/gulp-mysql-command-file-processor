@@ -8,27 +8,6 @@ const PLUGIN_NAME = 'gulp-mysql-command-file-processor';
 
 /**
  *
- * @param {string} _user - Database username
- * @param {string} _passw - database user password
- * @param {string} _host - The database host server (defaults to localhost)
- * @param {string} _port - The port the host server is listening on (defaults to 3306)
- * @param {string} _database - The database on the host server
- * @returns {nm$_mysql.dbConnect.client|dbConnect.client}
- */
-function dbConnect(_user, _passw, _host, _port, _database) {
-    var client = mysql.createConnection({
-        host: _host,
-        user: _user,
-        password: _passw,
-        port: _port,
-        database: _database
-    });
-    client.connect();
-    return client;
-}
-
-/**
- *
  * @param {string} _fileName - Name of the file being streamed
  * @param {array} _commandBuffer - Array of the processed commands
  * @param {nm$_mysql.dbConnect.client|dbConnect.client} _dbConnection - A live connection to the database
@@ -55,32 +34,37 @@ function processCommands(_fileName, _commandBuffer, _dbConnection, _verbosity, _
                 }
 
                 processNextCommand = false;
-                _dbConnection.query({sql: _commandBuffer[commandCount], timeout: 60000}, function(err) {
+                const sqlCommand = _commandBuffer[commandCount];
+                _dbConnection.query({sql: sqlCommand, timeout: 60000}, function(err) {
                     if (err) {
-                        console.log('Command#' + (commandCount + 1) + ' in file \'' + _fileName + '\' failed :: ' + err);
                         if (!_force) {
                             process.exit(-1);
+                        } else {
+                            console.log('Failed executed query #' + (commandCount + 1));
+                            commandsDone = true;
+                            cb(new gutil.PluginError(PLUGIN_NAME, "Cannot execute SQL command '" 
+                                + sqlCommand + "'" + (_fileName != null ? " from the file '" + _fileName + "'" : "")
+                                + ". Underlayer error: " + err + ""));
+                            return;
                         }
                     } else {
-                        if (_verbosity > 1) {
+                        if (_verbosity > 2) {
                             console.log('Successfully executed query #' + (commandCount + 1));
                         }
 
                         commandCount++;
                         if (commandCount === _commandBuffer.length) {
                             commandsDone = true;
-                            _dbConnection.end(function() {});
-                            if (_verbosity > 0) {
+                            if (_verbosity > 2) {
                                 console.log('Executed ' + commandCount + ' commands from file \'' + _fileName + '\'');
                             }
                         } else {
                             processNextCommand = true;
                         }
+                        setTimeout(runCmd, 40);
                     }
                 });
             }
-
-            setTimeout(runCmd, 40);
         }
         else {
             cb(); 
@@ -121,7 +105,7 @@ function processCommandFile(_username, _password, _host, _port, _verbosity, _dat
         } else if (file.isStream()) {
             buffer = file.contents;
         } else {
-            this.emit('error', new PluginError(PLUGIN_NAME, 'Buffers not supported!'));
+            this.emit('error', new gutil.PluginError(PLUGIN_NAME, 'Buffers not supported!'));
             return cb();
         }
 
@@ -172,13 +156,32 @@ function processCommandFile(_username, _password, _host, _port, _verbosity, _dat
             commandBuffer.push(command);
         }
 
-        var dbConnection = dbConnect(_username, _password, host, port, _database);
-        var name = file.path;
-        if (verbosity > 0) {
-            console.log('Starting to process \'' + name + '\'');                 
-        }
-        processCommands(name, commandBuffer, dbConnection, verbosity, force, function(){
-            cb(null, file);
+        if (verbosity > 2) { console.log('Connecting to a database...'); }
+        const dbConnection = mysql.createConnection({ host: host, user: _username, password: _password, port: port, database: _database });
+        dbConnection.connect(function(err) {
+            if (err) {
+                cb(err);
+                return;
+            }
+            if (verbosity > 2) { console.log('Connection to the database was established.'); }
+            const name = file.path;
+            if (verbosity > 0) {
+                if (name && name != null) {
+                    console.log('Processing \'' + name + '\'...');
+                } else {
+                    console.log('Processing an SQL script...');
+                }
+            }
+            const self = this;
+            processCommands(name, commandBuffer, dbConnection, verbosity, force, function(err) {
+                if (verbosity > 2) { console.log('Close the database connection.'); }
+                dbConnection.end(function() {});
+                if(err) {
+                    cb(err, file);
+                } else {
+                    cb(null, file);
+                }
+            });
         });
     });
 }
